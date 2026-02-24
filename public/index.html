@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webpage PDF Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .url-item {
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Header -->
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-gray-800 mb-3">
+                <i class="fas fa-file-pdf text-red-600 mr-3"></i>
+                Webpage PDF Generator
+            </h1>
+            <p class="text-gray-600 text-lg">Convert multiple webpages into perfect PDF documents</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="grid lg:grid-cols-2 gap-8">
+            <!-- Input Section -->
+            <section class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-6">
+                    <i class="fas fa-link text-blue-600 mr-2"></i>
+                    URLs to Convert
+                </h2>
+
+                <!-- URL Input -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Add URLs (one per line or comma-separated)
+                    </label>
+                    <textarea 
+                        id="urlInput" 
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                        rows="6"
+                        placeholder="https://example.com&#10;https://github.com&#10;https://stackoverflow.com"
+                    ></textarea>
+                    <button 
+                        onclick="parseUrls()" 
+                        class="mt-3 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        <i class="fas fa-plus mr-2"></i>Parse URLs
+                    </button>
+                </div>
+
+                <!-- URL List -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-lg font-medium text-gray-700">URL List</h3>
+                        <button 
+                            onclick="clearAllUrls()" 
+                            class="text-red-600 hover:text-red-800 text-sm"
+                        >
+                            <i class="fas fa-trash mr-1"></i>Clear All
+                        </button>
+                    </div>
+                    <div id="urlList" class="max-h-64 overflow-y-auto space-y-2 border border-gray-200 rounded-lg p-3">
+                        <p class="text-gray-500 text-center py-4">No URLs added yet</p>
+                    </div>
+                </div>
+
+                <!-- PDF Options -->
+                <div class="border-t pt-6">
+                    <h3 class="text-lg font-medium text-gray-700 mb-4">
+                        <i class="fas fa-cog text-gray-600 mr-2"></i>
+                        PDF Options
+                    </h3>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Page Size</label>
+                            <select id="pageSize" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="A4">A4</option>
+                                <option value="A3">A3</option>
+                                <option value="A5">A5</option>
+                                <option value="Letter">Letter</option>
+                                <option value="Legal">Legal</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Orientation</label>
+                            <select id="orientation" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="portrait">Portrait</option>
+                                <option value="landscape">Landscape</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Margins (cm)</label>
+                        <div class="grid grid-cols-4 gap-2">
+                            <input type="number" id="marginTop" placeholder="Top" value="1" min="0" max="5" step="0.5" 
+                                   class="px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
+                            <input type="number" id="marginRight" placeholder="Right" value="1" min="0" max="5" step="0.5" 
+                                   class="px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
+                            <input type="number" id="marginBottom" placeholder="Bottom" value="1" min="0" max="5" step="0.5" 
+                                   class="px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
+                            <input type="number" id="marginLeft" placeholder="Left" value="1" min="0" max="5" step="0.5" 
+                                   class="px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="printBackground" checked class="mr-2">
+                            <span class="text-sm text-gray-700">Print background colors and images</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-3 mt-6">
+                    <button 
+                        onclick="generateIndividualPdfs()" 
+                        class="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-medium"
+                    >
+                        <i class="fas fa-file-pdf mr-2"></i>
+                        Generate Individual PDFs
+                    </button>
+                    <button 
+                        onclick="generateMergedPdf()" 
+                        class="flex-1 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                    >
+                        <i class="fas fa-file-pdf mr-2"></i>
+                        Generate Merged PDF
+                    </button>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-6">
+                    <i class="fas fa-download text-green-600 mr-2"></i>
+                    Results
+                </h2>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="hidden text-center py-12" style="display: none;">
+                    <div class="loading-spinner mx-auto mb-4"></div>
+                    <p class="text-gray-600 font-medium">Generating PDFs...</p>
+                    <p class="text-gray-500 text-sm mt-2">This may take a few moments</p>
+                </div>
+
+                <!-- Results Display -->
+                <div id="results" class="space-y-4">
+                    <div class="text-center py-12 text-gray-500">
+                        <i class="fas fa-inbox text-6xl mb-4 text-gray-300"></i>
+                        <p>No PDFs generated yet</p>
+                        <p class="text-sm mt-2">Add URLs and click generate to start</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Status Bar -->
+        <footer class="mt-10 text-center text-gray-600 text-sm">
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex justify-center items-center space-x-6">
+                    <span><i class="fas fa-server text-blue-600 mr-1"></i>Server Status: <span id="serverStatus" class="font-medium">Checking...</span></span>
+                    <span><i class="fas fa-link text-green-600 mr-1"></i>URLs: <span id="urlCount" class="font-medium">0</span></span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        let urls = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            checkServerStatus();
+            updateUrlCount();
+        });
+
+        // Check server status
+        async function checkServerStatus() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                document.getElementById('serverStatus').textContent = 'Online';
+                document.getElementById('serverStatus').className = 'font-medium text-green-600';
+            } catch (error) {
+                document.getElementById('serverStatus').textContent = 'Offline';
+                document.getElementById('serverStatus').className = 'font-medium text-red-600';
+            }
+        }
+
+        // Parse URLs from input
+        function parseUrls() {
+            const input = document.getElementById('urlInput').value.trim();
+            if (!input) {
+                showNotification('Please enter at least one URL', 'error');
+                return;
+            }
+
+            const newUrls = input.split(/[\n,]/)
+                .map(url => url.trim())
+                .filter(url => url && isValidUrl(url));
+
+            if (newUrls.length === 0) {
+                showNotification('No valid URLs found', 'error');
+                return;
+            }
+
+            urls = [...urls, ...newUrls];
+            updateUrlList();
+            document.getElementById('urlInput').value = '';
+            showNotification(`Added ${newUrls.length} URL(s)`, 'success');
+        }
+
+        // Validate URL
+        function isValidUrl(string) {
+            try {
+                new URL(string);
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        // Update URL list display
+        function updateUrlList() {
+            const urlList = document.getElementById('urlList');
+            
+            if (urls.length === 0) {
+                urlList.innerHTML = '<p class="text-gray-500 text-center py-4">No URLs added yet</p>';
+                return;
+            }
+
+            urlList.innerHTML = urls.map((url, index) => `
+                <div class="url-item flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-gray-900 truncate" title="${url}">${url}</p>
+                    </div>
+                    <button 
+                        onclick="removeUrl(${index})" 
+                        class="ml-2 text-red-600 hover:text-red-800"
+                    >
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `).join('');
+            
+            updateUrlCount();
+        }
+
+        // Remove URL
+        function removeUrl(index) {
+            urls.splice(index, 1);
+            updateUrlList();
+        }
+
+        // Clear all URLs
+        function clearAllUrls() {
+            urls = [];
+            updateUrlList();
+        }
+
+        // Update URL count
+        function updateUrlCount() {
+            document.getElementById('urlCount').textContent = urls.length;
+        }
+
+        // Get PDF options
+        function getPdfOptions() {
+            return {
+                format: document.getElementById('pageSize').value,
+                landscape: document.getElementById('orientation').value === 'landscape',
+                margin: {
+                    top: document.getElementById('marginTop').value + 'cm',
+                    right: document.getElementById('marginRight').value + 'cm',
+                    bottom: document.getElementById('marginBottom').value + 'cm',
+                    left: document.getElementById('marginLeft').value + 'cm'
+                },
+                printBackground: document.getElementById('printBackground').checked
+            };
+        }
+
+        // Generate individual PDFs
+        async function generateIndividualPdfs() {
+            if (urls.length === 0) {
+                showNotification('Please add URLs first', 'error');
+                return;
+            }
+
+            showLoading(true);
+            
+            try {
+                const response = await fetch('/generate-pdf', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        urls: urls,
+                        options: getPdfOptions()
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayResults(data);
+                    showNotification(`Successfully generated ${data.successful} PDF(s)`, 'success');
+                } else {
+                    showNotification('Failed to generate PDFs', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Error generating PDFs', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Generate merged PDF
+        async function generateMergedPdf() {
+            if (urls.length === 0) {
+                showNotification('Please add URLs first', 'error');
+                return;
+            }
+
+            showLoading(true);
+            
+            try {
+                const response = await fetch('/generate-merged-pdf', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        urls: urls,
+                        options: getPdfOptions()
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayMergedResult(data);
+                    showNotification('Successfully generated merged PDF', 'success');
+                } else {
+                    showNotification('Failed to generate merged PDF', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Error generating merged PDF', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Display results
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            
+            let html = `
+                <div class="mb-6 p-4 bg-blue-50 rounded-lg">
+                    <h3 class="font-semibold text-blue-900 mb-2">Generation Summary</h3>
+                    <div class="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                            <span class="text-blue-700 font-medium">${data.totalProcessed}</span>
+                            <span class="text-blue-600"> Total</span>
+                        </div>
+                        <div>
+                            <span class="text-green-700 font-medium">${data.successful}</span>
+                            <span class="text-green-600"> Successful</span>
+                        </div>
+                        <div>
+                            <span class="text-red-700 font-medium">${data.failed}</span>
+                            <span class="text-red-600"> Failed</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (data.pdfs.length > 0) {
+                html += '<div class="space-y-3">';
+                data.pdfs.forEach((item, index) => {
+                    html += `
+                        <div class="border border-green-200 bg-green-50 rounded-lg p-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex-1">
+                                    <p class="font-medium text-green-900">${item.filename}</p>
+                                    <p class="text-sm text-green-700 truncate" title="${item.url}">${item.url}</p>
+                                </div>
+                                <button 
+                                    onclick="downloadPdf('${item.pdf}', '${item.filename}')" 
+                                    class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
+                                >
+                                    <i class="fas fa-download mr-2"></i>Download
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+
+            if (data.errors.length > 0) {
+                html += `
+                    <div class="mt-6">
+                        <h4 class="font-semibold text-red-900 mb-3">Errors</h4>
+                        <div class="space-y-2">
+                `;
+                data.errors.forEach(error => {
+                    html += `
+                        <div class="border border-red-200 bg-red-50 rounded-lg p-3">
+                            <p class="text-sm text-red-800 truncate" title="${error.url}">${error.url}</p>
+                            <p class="text-xs text-red-600">${error.error}</p>
+                        </div>
+                    `;
+                });
+                html += '</div></div>';
+            }
+
+            resultsDiv.innerHTML = html;
+        }
+
+        // Display merged result
+        function displayMergedResult(data) {
+            const resultsDiv = document.getElementById('results');
+            
+            resultsDiv.innerHTML = `
+                <div class="border border-purple-200 bg-purple-50 rounded-lg p-6">
+                    <div class="text-center">
+                        <i class="fas fa-file-pdf text-6xl text-purple-600 mb-4"></i>
+                        <h3 class="text-xl font-semibold text-purple-900 mb-2">${data.filename}</h3>
+                        <p class="text-purple-700 mb-4">Combined ${data.totalUrls} webpages into one PDF</p>
+                        <button 
+                            onclick="downloadPdf('${data.pdf}', '${data.filename}')" 
+                            class="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                        >
+                            <i class="fas fa-download mr-2"></i>Download PDF
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Download PDF
+        function downloadPdf(base64Data, filename) {
+            try {
+                // Validate base64 data
+                if (!base64Data || typeof base64Data !== 'string') {
+                    throw new Error('Invalid PDF data');
+                }
+                
+                // Clean base64 string (remove potential whitespace/newlines)
+                const cleanBase64 = base64Data.replace(/\s/g, '');
+                
+                // Convert base64 to blob
+                const binaryString = atob(cleanBase64);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                const blob = new Blob([bytes], { type: 'application/pdf' });
+                
+                // Create download link
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                link.style.display = 'none';
+                
+                // Trigger download
+                document.body.appendChild(link);
+                link.click();
+                
+                // Cleanup
+                setTimeout(() => {
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                
+                showNotification(`Downloaded ${filename}`, 'success');
+            } catch (error) {
+                console.error('Download error:', error);
+                showNotification(`Download failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Show/hide loading
+        function showLoading(show) {
+            const loadingState = document.getElementById('loadingState');
+            const results = document.getElementById('results');
+            
+            if (show) {
+                loadingState.classList.remove('hidden');
+                loadingState.style.display = 'block';
+                results.classList.add('hidden');
+                results.style.display = 'none';
+            } else {
+                loadingState.classList.add('hidden');
+                loadingState.style.display = 'none';
+                results.classList.remove('hidden');
+                results.style.display = 'block';
+            }
+        }
+
+        // Show notification
+        function showNotification(message, type) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${
+                type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+            }`;
+            notification.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} mr-2"></i>
+                    ${message}
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
