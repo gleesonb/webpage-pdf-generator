@@ -29,6 +29,40 @@ const defaultPdfOptions = {
   }
 };
 
+// Reusable PDF generation function that accepts a browser instance
+async function generatePdfFromUrlWithBrowser(browser, url, options = {}) {
+  let page;
+  try {
+    page = await browser.newPage();
+
+    // Set viewport and user agent
+    await page.setViewport({ width: 1200, height: 800 });
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+
+    // Navigate to URL with timeout
+    await page.goto(url, {
+      waitUntil: 'networkidle2',
+      timeout: 30000
+    });
+
+    // Wait for page to fully load
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Generate PDF with merged options
+    const pdfOptions = { ...defaultPdfOptions, ...options };
+    const pdf = await page.pdf(pdfOptions);
+
+    return pdf;
+  } catch (error) {
+    console.error(`Error generating PDF for ${url}:`, error);
+    throw error;
+  } finally {
+    if (page) {
+      await page.close();
+    }
+  }
+}
+
 // Generate PDF from single URL
 async function generatePdfFromUrl(url, options = {}) {
   let browser;
