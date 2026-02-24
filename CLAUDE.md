@@ -38,13 +38,14 @@ curl http://localhost:3000/health       # Health check
 ### Backend (server.js)
 - **Express server** running on port 3000 (configurable via PORT env var)
 - **Puppeteer** for headless Chrome PDF generation
+- **PDF-lib** for merging multiple PDFs into a single document
 - **Core function**: `generatePdfFromUrl(url, options)` - handles browser lifecycle, page navigation with networkidle2, and PDF generation
 - **Middleware**: Helmet (security), CORS, express.json(), static file serving
 
 ### API Endpoints
 - `GET /` - Serve the web UI
 - `POST /generate-pdf` - Generate individual PDFs for each URL (returns array of base64-encoded PDFs)
-- `POST /generate-merged-pdf` - Generate single combined PDF (currently incomplete, returns single PDF not merged)
+- `POST /generate-merged-pdf` - Generate single combined PDF from multiple URLs using PDF-lib
 - `GET /health` - Health check endpoint
 - `GET /download-pdf/:filename` - Placeholder (not implemented)
 
@@ -78,7 +79,7 @@ curl http://localhost:3000/health       # Health check
 
 **Puppeteer Browser Lifecycle**: Each PDF generation creates a new browser instance that is closed in the `finally` block. This prevents memory leaks but may impact performance for batch operations.
 
-**Known Issue**: `/generate-merged-pdf` endpoint currently generates a single PDF from a blank page rather than actually merging multiple webpages. The merged functionality is incomplete.
+**Merged PDF Implementation**: The `/generate-merged-pdf` endpoint successfully merges multiple webpage PDFs into a single document using PDF-lib. Each URL is converted to a PDF buffer, then all PDFs are combined sequentially into a single merged document returned as base64.
 
 **Client-side Downloads**: PDFs are returned as base64 strings and converted to Blob objects in the browser for download, not stored server-side.
 
