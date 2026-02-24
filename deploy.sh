@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-GIT_REPO="https://github.com/yourusername/webpage-pdf-generator.git"
+GIT_REPO="https://github.com/gleesonb/webpage-pdf-generator.git"
 GIT_BRANCH="main"
 COMPOSE_FILE="docker-compose.git.yml"
 PROD_COMPOSE_FILE="docker-compose.git-prod.yml"
