@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs').promises;
+const { PDFDocument } = require('pdf-lib');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -151,47 +152,99 @@ app.post('/generate-pdf', async (req, res) => {
 app.post('/generate-merged-pdf', async (req, res) => {
   try {
     const { urls, options } = req.body;
-    
+
+    // Validate urls array
     if (!urls || !Array.isArray(urls) || urls.length === 0) {
       return res.status(400).json({ error: 'Please provide at least one URL' });
     }
-    
+
     let browser;
+    const pdfBuffers = [];
+    const errors = [];
+
     try {
+      // Launch browser once
       browser = await puppeteer.launch({
         headless: 'new',
         executablePath: puppeteer.executablePath(),
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
       });
-      
-      const page = await browser.newPage();
-      await page.setViewport({ width: 1200, height: 800 });
-      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-      
-      const pdfOptions = { ...defaultPdfOptions, ...options };
-      
-      // Generate combined PDF
-      const pdf = await page.pdf({
-        ...pdfOptions,
-        printBackground: true
-      });
-      
-      res.json({
-        success: true,
-        pdf: Buffer.from(pdf).toString('base64'),
-        filename: 'combined_webpages.pdf',
-        totalUrls: urls.length
-      });
-      
-    } catch (error) {
-      console.error('Error generating merged PDF:', error);
-      throw error;
+
+      // For each URL, generate PDF and store buffers or errors
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
+        try {
+          const pdf = await generatePdfFromUrlWithBrowser(browser, url, options);
+          pdfBuffers.push({
+            url,
+            buffer: pdf,
+            index: i
+          });
+        } catch (error) {
+          console.error(`Failed to generate PDF for ${url}:`, error);
+          errors.push({
+            url,
+            error: error.message,
+            index: i
+          });
+        }
+      }
+
     } finally {
+      // Close browser in finally
       if (browser) {
         await browser.close();
       }
     }
-    
+
+    // If no PDFs succeeded, return 500 error
+    if (pdfBuffers.length === 0) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to generate any PDFs from the provided URLs',
+        totalUrls: urls.length,
+        successful: 0,
+        failed: errors.length,
+        errors
+      });
+    }
+
+    // Use PDF-lib to merge PDFs
+    const mergedPdf = await PDFDocument.create();
+
+    for (const pdfData of pdfBuffers) {
+      try {
+        // Load each PDF
+        const pdf = await PDFDocument.load(pdfData.buffer);
+        // Copy pages from source PDF
+        const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+        // Add all pages to merged PDF
+        copiedPages.forEach((page) => mergedPdf.addPage(page));
+      } catch (error) {
+        console.error(`Failed to merge PDF from ${pdfData.url}:`, error);
+        errors.push({
+          url: pdfData.url,
+          error: `Failed to merge: ${error.message}`,
+          index: pdfData.index
+        });
+      }
+    }
+
+    // Save merged PDF
+    const mergedPdfBytes = await mergedPdf.save();
+    const mergedPdfBase64 = Buffer.from(mergedPdfBytes).toString('base64');
+
+    // Return response
+    res.json({
+      success: true,
+      pdf: mergedPdfBase64,
+      filename: 'merged_webpages.pdf',
+      totalUrls: urls.length,
+      successful: pdfBuffers.length,
+      failed: errors.length,
+      errors
+    });
+
   } catch (error) {
     console.error('Server error:', error);
     res.status(500).json({ error: 'Internal server error' });
