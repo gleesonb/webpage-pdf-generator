@@ -15,7 +15,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(express.static('public'));
 
 // PDF generation options
@@ -29,6 +29,16 @@ const defaultPdfOptions = {
     left: '1cm'
   }
 };
+
+// URL validation helper function
+function isValidUrl(string) {
+  try {
+    const url = new URL(string);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch (err) {
+    return false;
+  }
+}
 
 // Reusable PDF generation function that accepts a browser instance
 async function generatePdfFromUrlWithBrowser(browser, url, options = {}) {
@@ -150,12 +160,32 @@ app.post('/generate-pdf', async (req, res) => {
 });
 
 app.post('/generate-merged-pdf', async (req, res) => {
+  // Set timeout for the entire operation (5 minutes)
+  const timeout = setTimeout(() => {
+    console.error('Operation timeout after 5 minutes');
+    if (!res.headersSent) {
+      res.status(408).json({ error: 'Request timeout - operation took longer than 5 minutes' });
+    }
+  }, 5 * 60 * 1000);
+
   try {
     const { urls, options } = req.body;
 
     // Validate urls array
     if (!urls || !Array.isArray(urls) || urls.length === 0) {
+      clearTimeout(timeout);
       return res.status(400).json({ error: 'Please provide at least one URL' });
+    }
+
+    // Validate each URL format
+    const invalidUrls = urls.filter(url => !isValidUrl(url));
+    if (invalidUrls.length > 0) {
+      clearTimeout(timeout);
+      return res.status(400).json({
+        error: 'Invalid URL format provided',
+        invalidUrls,
+        message: 'All URLs must be valid and start with http:// or https://'
+      });
     }
 
     let browser;
@@ -199,6 +229,7 @@ app.post('/generate-merged-pdf', async (req, res) => {
 
     // If no PDFs succeeded, return 500 error
     if (pdfBuffers.length === 0) {
+      clearTimeout(timeout);
       return res.status(500).json({
         success: false,
         error: 'Failed to generate any PDFs from the provided URLs',
@@ -234,6 +265,9 @@ app.post('/generate-merged-pdf', async (req, res) => {
     const mergedPdfBytes = await mergedPdf.save();
     const mergedPdfBase64 = Buffer.from(mergedPdfBytes).toString('base64');
 
+    // Clear timeout on successful completion
+    clearTimeout(timeout);
+
     // Return response
     res.json({
       success: true,
@@ -246,8 +280,11 @@ app.post('/generate-merged-pdf', async (req, res) => {
     });
 
   } catch (error) {
+    clearTimeout(timeout);
     console.error('Server error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 });
 
