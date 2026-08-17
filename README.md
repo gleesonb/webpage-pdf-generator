@@ -1,5 +1,40 @@
 # Webpage PDF Generator
 
+> ## ⚠️ ARCHIVED — no longer maintained or deployed
+>
+> **Status:** Decommissioned 2026-08-17. This is archive code, kept for reference only.
+>
+> The hosted instance at `pdfgen.billgleeson.com` has been shut down: the container was
+> removed from its host and the Cloudflare tunnel entry and DNS record deleted. The URL
+> no longer resolves. Do not redeploy this as a public service.
+>
+> **Why it was retired**
+>
+> - **Superseded by [Stirling-PDF](https://github.com/Stirling-Tools/Stirling-PDF)**, which
+>   covers URL→PDF and merge. The only capability unique to this project was taking a
+>   batch list of URLs and returning one merged PDF.
+> - **It was an unauthenticated public headless browser** that fetched arbitrary URLs on
+>   request, with `access-control-allow-origin: *` — an SSRF pivot co-located with other
+>   services on the same host. Fixing it without putting it behind auth would have made
+>   that worse, not better.
+>
+> **It was already broken when retired.** Static pages and `/health` returned 200, but
+> `POST /generate-pdf` hung until the upstream proxy timed out (Cloudflare 524). The cause
+> is Puppeteer/Chromium in the container, and it is still present in this code:
+>
+> - `Dockerfile` sets `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD`, renamed to `PUPPETEER_SKIP_DOWNLOAD`
+>   in Puppeteer v20 (this repo pins `^24`), so the bundled Chrome is downloaded anyway.
+> - `Dockerfile` points at `/usr/bin/chromium-browser`; Alpine dropped that symlink in
+>   favour of `/usr/bin/chromium`.
+> - `server.js` overrides both with `puppeteer.executablePath()`, which resolves to a
+>   glibc-linked Chrome-for-Testing binary that cannot run on musl.
+>
+> Nothing was version-pinned (`node:18-alpine`, `apk add chromium`, `puppeteer: ^24`), so a
+> rebuild silently changed the runtime underneath a working deployment.
+>
+> **If you need this again:** build it as a local script (Playwright + `pdf-lib`) rather than
+> a hosted endpoint. Same output, no exposed attack surface, nothing to rot.
+
 A powerful web application that converts multiple webpages into perfect PDF documents with customizable options.
 
 ## Features

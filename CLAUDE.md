@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ ARCHIVED — do not fix, do not redeploy
+
+Decommissioned 2026-08-17. This is archive code. The deployment at `pdfgen.billgleeson.com`
+is gone (container removed, Cloudflare tunnel entry and DNS record deleted) and is not
+coming back. Stirling-PDF replaced it.
+
+The Puppeteer/Chromium breakage described in README.md is **known and intentionally left
+unfixed**. If a future session finds `POST /generate-pdf` timing out, that is expected —
+it is not a bug to repair. Do not restore this as a public service; it was an
+unauthenticated headless browser fetching arbitrary URLs.
+
+Everything below describes the code as it was when it last worked, and is retained for
+reference only.
+
 ## Project Overview
 
 This is a Webpage PDF Generator - a Node.js/Express web application that converts multiple webpages into PDF documents using Puppeteer (headless Chrome). The application supports both individual PDF generation and merged PDFs from multiple URLs.
